@@ -132,6 +132,8 @@ impl RemoteDisplay {
             "home" => return shared.send_input(HostMsg::Nav(NavAction::Home)),
             "backspace" => return shared.send_input(HostMsg::Key { down: true, keycode: 67, meta: 0 }),
             "enter" => return shared.send_input(HostMsg::Key { down: true, keycode: 66, meta: 0 }),
+            // GPUI doesn't always attach a key_char to space, so it would fall through and be dropped.
+            "space" => return shared.send_input(HostMsg::Text(" ".into())),
             _ => {}
         }
         if let Some(ch) = k.key_char.as_ref().filter(|s| !s.is_empty() && !s.chars().any(|c| c.is_control())) {

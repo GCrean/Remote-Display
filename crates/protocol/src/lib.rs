@@ -21,7 +21,7 @@ pub const LEGACY_PACKAGES: &[&str] = &["dev.remotedisplay.companion"];
 pub const MAIN_ACTIVITY: &str = "com.thunderlight.remote.display/.MainActivity";
 pub const ACCESSIBILITY_SERVICE: &str = "com.thunderlight.remote.display/com.thunderlight.remote.display.InputService";
 /// Must match `versionCode` in android/app/build.gradle.kts.
-pub const COMPANION_VERSION_CODE: u32 = 9;
+pub const COMPANION_VERSION_CODE: u32 = 10;
 
 pub const HEADER_LEN: usize = 14;
 pub const MAX_PAYLOAD: u32 = 32 * 1024 * 1024;

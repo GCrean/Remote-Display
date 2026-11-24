@@ -17,35 +17,44 @@ Encoder::Encoder(Server* server, int width, int height, int rotation, int bitrat
 Encoder::~Encoder() { stop(); }
 
 bool Encoder::start() {
-    codec_ = AMediaCodec_createEncoderByType("video/avc");
-    if (!codec_) {
-        LOGE("no H.264 encoder");
-        return false;
+    // Some vendor encoders (e.g. OMX.qcom on older Zebra builds) reject the optional low-latency
+    // keys with -38. Retry on a fresh codec with progressively fewer optional keys.
+    media_status_t st = AMEDIA_ERROR_UNKNOWN;
+    for (int tier = 0; tier < 3; ++tier) {
+        codec_ = AMediaCodec_createEncoderByType("video/avc");
+        if (!codec_) {
+            LOGE("no H.264 encoder");
+            return false;
+        }
+        AMediaFormat* f = AMediaFormat_new();
+        // Plain string keys (identical to the Java MediaFormat constants): the AMEDIAFORMAT_KEY_*
+        // symbols for several of these only exist on newer API levels than our minSdk.
+        AMediaFormat_setString(f, "mime", "video/avc");
+        AMediaFormat_setInt32(f, "width", width_);
+        AMediaFormat_setInt32(f, "height", height_);
+        AMediaFormat_setInt32(f, "color-format", kColorFormatSurface);
+        AMediaFormat_setInt32(f, "bitrate", bitrate_);
+        AMediaFormat_setInt32(f, "frame-rate", 60);
+        AMediaFormat_setInt32(f, "i-frame-interval", 2);
+        if (tier < 2) {
+            AMediaFormat_setInt32(f, "profile", kAvcProfileBaseline);
+            AMediaFormat_setInt32(f, "bitrate-mode", kBitrateModeVbr);
+            // Static screens produce no new frames; re-emit so the host keeps getting pictures.
+            AMediaFormat_setInt64(f, "repeat-previous-frame-after", 100000);
+        }
+        if (tier < 1) {
+            AMediaFormat_setInt32(f, "priority", 0);  // realtime
+            AMediaFormat_setInt32(f, "latency", 1);
+            AMediaFormat_setInt32(f, "max-b-frames", 0);
+        }
+        st = AMediaCodec_configure(codec_, f, nullptr, nullptr, AMEDIACODEC_CONFIGURE_FLAG_ENCODE);
+        AMediaFormat_delete(f);
+        if (st == AMEDIA_OK) break;
+        LOGE("configure failed: %d (tier %d)", st, tier);
+        AMediaCodec_delete(codec_);
+        codec_ = nullptr;
     }
-    AMediaFormat* f = AMediaFormat_new();
-    // Plain string keys (identical to the Java MediaFormat constants): the AMEDIAFORMAT_KEY_*
-    // symbols for several of these only exist on newer API levels than our minSdk.
-    AMediaFormat_setString(f, "mime", "video/avc");
-    AMediaFormat_setInt32(f, "width", width_);
-    AMediaFormat_setInt32(f, "height", height_);
-    AMediaFormat_setInt32(f, "color-format", kColorFormatSurface);
-    AMediaFormat_setInt32(f, "bitrate", bitrate_);
-    AMediaFormat_setInt32(f, "frame-rate", 60);
-    AMediaFormat_setInt32(f, "i-frame-interval", 2);
-    AMediaFormat_setInt32(f, "profile", kAvcProfileBaseline);
-    AMediaFormat_setInt32(f, "bitrate-mode", kBitrateModeVbr);
-    // Static screens produce no new frames; re-emit so the host keeps getting pictures.
-    AMediaFormat_setInt64(f, "repeat-previous-frame-after", 100000);
-    AMediaFormat_setInt32(f, "priority", 0);  // realtime
-    AMediaFormat_setInt32(f, "latency", 1);
-    AMediaFormat_setInt32(f, "max-b-frames", 0);
-
-    media_status_t st = AMediaCodec_configure(codec_, f, nullptr, nullptr, AMEDIACODEC_CONFIGURE_FLAG_ENCODE);
-    AMediaFormat_delete(f);
-    if (st != AMEDIA_OK) {
-        LOGE("configure failed: %d", st);
-        return false;
-    }
+    if (st != AMEDIA_OK) return false;
     st = AMediaCodec_createInputSurface(codec_, &window_);
     if (st != AMEDIA_OK || !window_) {
         LOGE("createInputSurface failed: %d", st);

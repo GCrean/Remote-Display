@@ -14,7 +14,7 @@ android {
         minSdk = 26 // dispatchGesture continueStroke
         targetSdk = 35
         // Keep in sync with COMPANION_VERSION_CODE in crates/protocol/src/lib.rs
-        versionCode = 9
+        versionCode = 10
         versionName = "0.1.0"
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
         externalNativeBuild { cmake { arguments += listOf("-DANDROID_STL=c++_static") } }
@@ -36,8 +36,8 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_23
-        targetCompatibility = JavaVersion.VERSION_23
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "23" }
+    kotlinOptions { jvmTarget = "17" }
 }
