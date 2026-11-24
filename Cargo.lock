@@ -4631,14 +4631,14 @@ dependencies = [
 
 [[package]]
 name = "rd-adbkit"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "rd-protocol",
 ]
 
 [[package]]
 name = "rd-desktop"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "cpal",
  "fdk-aac-rs",
@@ -4654,11 +4654,11 @@ dependencies = [
 
 [[package]]
 name = "rd-mp4mux"
-version = "0.1.0"
+version = "0.2.0"
 
 [[package]]
 name = "rd-protocol"
-version = "0.1.0"
+version = "0.2.0"
 
 [[package]]
 name = "read-fonts"

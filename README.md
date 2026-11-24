@@ -85,12 +85,6 @@ cargo build --release -p rd-desktop
 cargo install cargo-packager --version 0.11.8 --locked      # once
 cargo packager --release --formats nsis -c Packager.toml     # Windows installer (dist/*.exe)
 cargo packager --release --formats app -c Packager.toml && \
-  packaging/make-dmg.sh "dist/Remote Display.app" dist/remote-display_0.1.0_aarch64.dmg   # macOS
+  packaging/make-dmg.sh "dist/Remote Display.app" dist/remote-display_0.2.0_aarch64.dmg   # macOS
 cargo packager --release --formats deb,appimage -c Packager.toml                          # Linux
 ```
-
-Pushing a tag such as `v0.1.0` runs `.github/workflows/release.yml`, which builds the APK and the
-Windows, macOS (Apple silicon) and Linux installers in release mode and publishes them as a GitHub
-Release (tag, `Cargo.toml` and `Packager.toml` versions must match). The macOS app is ad-hoc signed; for
-Gatekeeper-clean distribution add a Developer ID and notarization. Linux builds need the packages listed
-in the workflow (ALSA, Vulkan, xkbcommon, Wayland/X11 headers).

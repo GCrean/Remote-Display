@@ -5,7 +5,7 @@
 #   cargo packager --release --formats deb,appimage   # Linux
 name = "remote-display"
 product-name = "Remote Display"
-version = "0.1.0"
+version = "0.2.0"
 identifier = "dev.remotedisplay.desktop"
 description = "Mirror and control an Android device from your desktop"
 long-description = "Mirror an Android device's screen and audio to your desktop, control it with mouse and keyboard, record sessions to MP4, and drive it from MCP clients."
