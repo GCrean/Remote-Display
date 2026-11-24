@@ -31,7 +31,6 @@ jobs:
       - name: Make Gradle wrapper executable
         working-directory: android
         run: chmod +x ./gradlew
-      - name: Build Android release
       - working-directory: android
         run: ./gradlew assembleRelease --no-daemon
       - name: Stage APK
