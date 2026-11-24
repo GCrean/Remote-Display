@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Remote Display</string>
+    <string name="a11y_description">Lets the desktop Remote Display app tap, swipe, scroll and type on this device. Only used while you are connected.</string>
+</resources>

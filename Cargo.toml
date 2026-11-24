@@ -1,0 +1,17 @@
+[workspace]
+resolver = "2"
+members = ["crates/protocol", "crates/adbkit", "crates/mp4mux", "desktop"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+
+# xattr 0.2.3 (via gpui -> zed-async-tar) needs libc::ENOATTR, which current libc lacks on Linux.
+# Vendored copy differs only in src/sys/mod.rs (see the "Patched" comment there).
+[patch.crates-io]
+xattr = { path = "third_party/xattr" }

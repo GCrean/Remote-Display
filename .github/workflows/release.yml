@@ -1,0 +1,138 @@
+name: Release
+
+# Builds the companion APK and release-mode installers for Windows, macOS and Linux.
+#   - push a tag like v0.1.0   -> builds everything and publishes a GitHub Release
+#   - run manually (Actions tab) -> builds everything and uploads the installers as artifacts only
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  android:
+    name: Android companion APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: "platforms;android-35 build-tools;35.0.0 ndk;26.3.11579264 cmake;3.22.1"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build release APK
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon
+      - name: Stage APK
+        run: cp android/app/build/outputs/apk/release/app-release.apk remote-display.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: remote-display.apk
+          if-no-files-found: error
+
+  desktop:
+    name: Desktop (${{ matrix.name }})
+    needs: android
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: windows-x64, os: windows-latest, formats: nsis }
+          - { name: macos-arm64, os: macos-latest, formats: app }
+          - { name: linux-x64, os: ubuntu-22.04, formats: "deb,appimage" }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check tag matches the crate version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          crate=$(grep -m1 '^version' Cargo.toml | sed 's/.*"\(.*\)"/\1/')
+          pkg=$(grep -m1 '^version' Packager.toml | sed 's/.*"\(.*\)"/\1/')
+          tag="${GITHUB_REF_NAME#v}"
+          echo "tag=$tag Cargo.toml=$crate Packager.toml=$pkg"
+          [ "$tag" = "$crate" ] && [ "$tag" = "$pkg" ] || { echo "::error::tag, Cargo.toml and Packager.toml versions must match"; exit 1; }
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config clang cmake libasound2-dev libfontconfig-dev \
+            libwayland-dev libxkbcommon-dev libxkbcommon-x11-dev libx11-xcb-dev libxcb1-dev \
+            libvulkan-dev libssl-dev libzstd-dev file desktop-file-utils squashfs-tools xz-utils
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: apk
+          path: assets
+
+      - name: Install cargo-packager
+        uses: actions/cache@v4
+        id: packager-cache
+        with:
+          path: ~/.cargo/bin/cargo-packager${{ runner.os == 'Windows' && '.exe' || '' }}
+          key: cargo-packager-0.11.8-${{ runner.os }}
+      - if: steps.packager-cache.outputs.cache-hit != 'true'
+        run: cargo install cargo-packager --version 0.11.8 --locked
+
+      - name: Test
+        if: runner.os == 'Linux'
+        run: cargo test --workspace --locked --release
+
+      - name: Build (release)
+        run: cargo build --release --locked -p rd-desktop
+
+      - name: Package
+        run: cargo packager --release --formats ${{ matrix.formats }} -c Packager.toml
+
+      - name: macOS disk image
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          version=$(grep -m1 '^version' Packager.toml | sed 's/.*"\(.*\)"/\1/')
+          ./packaging/make-dmg.sh "dist/Remote Display.app" "dist/remote-display_${version}_aarch64.dmg"
+          rm -rf "dist/Remote Display.app" dist/.cargo-packager
+
+      - name: List installers
+        shell: bash
+        run: ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.name }}
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.deb
+            dist/*.AppImage
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: [android, desktop]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - run: ls -la artifacts
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true

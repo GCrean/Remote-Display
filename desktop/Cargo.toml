@@ -1,0 +1,23 @@
+[package]
+name = "rd-desktop"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "remote-display"
+path = "src/main.rs"
+
+[target.'cfg(windows)'.build-dependencies]
+winresource = "0.1"
+
+[dependencies]
+rd-protocol = { path = "../crates/protocol" }
+rd-adbkit = { path = "../crates/adbkit" }
+gpui = "0.2.2"
+openh264 = "0.9"
+cpal = "0.18"
+image = { version = "0.25", default-features = false }
+serde_json = "1"
+rd-mp4mux = { path = "../crates/mp4mux" }
+fdk-aac-rs = "0.1"
