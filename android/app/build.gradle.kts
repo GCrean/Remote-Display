@@ -27,12 +27,25 @@ android {
         }
     }
 
+    // Release signing comes from the environment (CI secrets or a local shell). A stable key is
+    // required so a newer APK can be installed over an older one with `adb install -r`.
+    // Without it, fall back to the debug key so local `assembleRelease` still works.
+    val releaseKeystore = System.getenv("RD_KEYSTORE_FILE")?.takeIf { it.isNotBlank() }
+    if (releaseKeystore != null) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = System.getenv("RD_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("RD_KEY_ALIAS")
+                keyPassword = System.getenv("RD_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
-            // The APK is sideloaded by the desktop app; sign with the debug key so
-            // `assembleRelease` output is installable without a keystore.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(if (releaseKeystore != null) "release" else "debug")
         }
     }
     compileOptions {

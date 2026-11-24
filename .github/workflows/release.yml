@@ -32,9 +32,34 @@ jobs:
         working-directory: android
         run: chmod +x ./gradlew
 
+      # Stable signing key so upgrades install over older versions. Secrets: ANDROID_KEYSTORE_BASE64,
+      # ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD. Skipped (debug key) if unset,
+      # e.g. on forks; tagged releases require it.
+      - name: Decode signing keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            echo "RD_KEYSTORE_FILE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+          elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 secret is required to publish a release"; exit 1
+          else
+            echo "::warning::No release keystore; signing with the debug key"
+          fi
+
       - name: Build Android Application
         working-directory: android
+        env:
+          RD_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          RD_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          RD_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: ./gradlew assembleRelease --no-daemon
+
+      - name: Verify APK signature
+        run: |
+          apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | tail -1)
+          "$apksigner" verify --print-certs android/app/build/outputs/apk/release/app-release.apk
 
       - name: Stage APK
         run: cp android/app/build/outputs/apk/release/app-release.apk remote-display.apk
@@ -107,6 +132,9 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: |
+          apk="dist/Remote Display.app/Contents/Resources/remote-display.apk"
+          [ -f "$apk" ] && cmp "$apk" assets/remote-display.apk \
+            || { echo "::error::APK missing or different in the .app bundle"; exit 1; }
           chmod +x ./packaging/make-dmg.sh
           version=$(grep -m1 '^version' Packager.toml | sed 's/.*"\(.*\)"/\1/')
           ./packaging/make-dmg.sh "dist/Remote Display.app" "dist/remote-display_${version}_aarch64.dmg"
@@ -115,6 +143,33 @@ jobs:
       - name: List installers
         shell: bash
         run: ls -la dist
+
+      - name: Verify APK is inside the installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          size=$(wc -c < assets/remote-display.apk | tr -d ' ')
+          echo "source APK: $size bytes"
+          case "$RUNNER_OS" in
+            Linux)
+              deb=$(ls dist/*.deb)
+              dpkg-deb -c "$deb" | tee /dev/stderr | grep -q 'remote-display\.apk' \
+                || { echo "::error::APK missing from $deb"; exit 1; }
+              img=$(ls dist/*.AppImage)
+              chmod +x "$img"
+              (cd "$RUNNER_TEMP" && rm -rf squashfs-root && "$OLDPWD/$img" --appimage-extract >/dev/null)
+              find "$RUNNER_TEMP/squashfs-root" -name remote-display.apk | tee /dev/stderr | grep -q . \
+                || { echo "::error::APK missing from AppImage"; exit 1; }
+              ;;
+            macOS)
+              # Checked on the .app in the "macOS disk image" step, before it is removed.
+              ls dist/*.dmg ;;
+            Windows)
+              exe=$(ls dist/*.exe)
+              7z l "$exe" | tee /dev/stderr | grep -q 'remote-display\.apk' \
+                || { echo "::error::APK missing from $exe"; exit 1; }
+              ;;
+          esac
 
       - uses: actions/upload-artifact@v4
         with:
