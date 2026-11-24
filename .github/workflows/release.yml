@@ -107,6 +107,7 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: |
+          chmod +x ./packaging/make-dmg.sh
           version=$(grep -m1 '^version' Packager.toml | sed 's/.*"\(.*\)"/\1/')
           ./packaging/make-dmg.sh "dist/Remote Display.app" "dist/remote-display_${version}_aarch64.dmg"
           rm -rf "dist/Remote Display.app" dist/.cargo-packager
