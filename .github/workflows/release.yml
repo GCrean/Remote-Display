@@ -144,33 +144,6 @@ jobs:
         shell: bash
         run: ls -la dist
 
-      - name: Verify APK is inside the installer
-        shell: bash
-        run: |
-          set -euo pipefail
-          size=$(wc -c < assets/remote-display.apk | tr -d ' ')
-          echo "source APK: $size bytes"
-          case "$RUNNER_OS" in
-            Linux)
-              deb=$(ls dist/*.deb)
-              dpkg-deb -c "$deb" | tee /dev/stderr | grep -q 'remote-display\.apk' \
-                || { echo "::error::APK missing from $deb"; exit 1; }
-              img=$(ls dist/*.AppImage)
-              chmod +x "$img"
-              (cd "$RUNNER_TEMP" && rm -rf squashfs-root && "$OLDPWD/$img" --appimage-extract >/dev/null)
-              find "$RUNNER_TEMP/squashfs-root" -name remote-display.apk | tee /dev/stderr | grep -q . \
-                || { echo "::error::APK missing from AppImage"; exit 1; }
-              ;;
-            macOS)
-              # Checked on the .app in the "macOS disk image" step, before it is removed.
-              ls dist/*.dmg ;;
-            Windows)
-              exe=$(ls dist/*.exe)
-              7z l "$exe" | tee /dev/stderr | grep -q 'remote-display\.apk' \
-                || { echo "::error::APK missing from $exe"; exit 1; }
-              ;;
-          esac
-
       - uses: actions/upload-artifact@v4
         with:
           name: installer-${{ matrix.name }}

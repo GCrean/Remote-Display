@@ -208,4 +208,4 @@ class Streamer(
 }
 
 /** Mirrors versionCode in app/build.gradle.kts (BuildConfig is disabled to keep the build minimal). */
-const val BuildConfig_VERSION_CODE = 9
+const val BuildConfig_VERSION_CODE = 10
